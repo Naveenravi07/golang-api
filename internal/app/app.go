@@ -9,26 +9,35 @@ import (
 
 	"github.com/Naveenravi07/go-api/internal/api"
 	"github.com/Naveenravi07/go-api/internal/store"
+	"github.com/Naveenravi07/go-api/migrations"
 )
 
 type Application struct {
-	Logger *log.Logger
+	Logger         *log.Logger
 	WorkoutHandler *api.WorkoutHandler
-	DB *sql.DB
+	DB             *sql.DB
 }
 
 func NewApplication() (*Application, error) {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
-	pgDB,err := store.Open()
-	if err != nil{
-		return  nil,err
+	pgDB, err := store.Open()
+	if err != nil {
+		return nil, err
 	}
 
+	err = store.MigrateFS(pgDB, migrations.FS, ".")
+	if err != nil {
+		panic(err)
+	}
+
+	workoutStore := store.NewPostgresWorkoutStore(pgDB)
+	workoutHandler := api.NewWorkoutHandler(workoutStore)
+
 	app := &Application{
-		Logger: logger,
-		DB: pgDB,
-		WorkoutHandler: api.NewWorkoutHandler(),
+		Logger:         logger,
+		DB:             pgDB,
+		WorkoutHandler: workoutHandler,
 	}
 
 	return app, nil
