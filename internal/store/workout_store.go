@@ -36,6 +36,7 @@ func NewPostgresWorkoutStore(db *sql.DB) *PostgresWorkoutStore {
 type WorkoutStore interface {
 	CreateWorkout(*Workout) (*Workout, error)
 	GetWorkoutById(id int64) (*Workout, error)
+	UpdateWorkout(*Workout) error
 }
 
 func (pg *PostgresWorkoutStore) CreateWorkout(workout *Workout) (*Workout, error) {
@@ -105,4 +106,80 @@ func (pg *PostgresWorkoutStore) GetWorkoutById(id int64) (*Workout, error) {
 	}
 
 	return workout, nil
+}
+
+func (pg *PostgresWorkoutStore) UpdateWorkout(workout *Workout) error {
+	tx, err := pg.db.Begin()
+	if err != nil {
+		return err
+	}
+	query := `UPDATE workouts set title=$1,description=$2,duration_minutes=$3,calories_burned=$4 where id=$5`
+	result, err := tx.Exec(query, workout.Title, workout.Description, workout.DurationMinutes, workout.CaloriesBurned, workout.Id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	rows, err := tx.Query(`SELECT id,workout_id,exercise_name,sets,reps,duration_seconds,weight,notes,order_index FROM workout_entries where workout_id=$1`, workout.Id)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	currentIds := map[int]bool{}
+	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		if err != nil {
+			return err
+		}
+		currentIds[id] = true
+	}
+
+	newIds := map[int]bool{}
+	for _, entry := range workout.Entries {
+		if entry.Id == 0 {
+			insertQ := `
+				INSERT INTO workout_entries 
+				(workout_id, exercise_name, sets, reps, duration_seconds, weight, notes, order_index)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			`
+			_, err := tx.Exec(insertQ, workout.Id, entry.ExerciseName, entry.Sets, entry.Reps, entry.DurationSeconds, entry.Weight, entry.Notes, entry.OrderIndex)
+			if err != nil {
+				return err
+			}
+		} else {
+			updateQ := `
+				UPDATE workout_entries
+				SET exercise_name=$1, sets=$2, reps=$3, duration_seconds=$4, weight=$5, notes=$6, order_index=$7
+				WHERE id=$8 AND workout_id=$9
+			`
+			_, err := tx.Exec(updateQ, entry.ExerciseName, entry.Sets, entry.Reps, entry.DurationSeconds, entry.Weight, entry.Notes, entry.OrderIndex, entry.Id, workout.Id)
+			if err != nil {
+				return err
+			}
+			newIds[entry.Id] = true
+		}
+	}
+
+	for id := range newIds {
+		if !currentIds[id] {
+			_, err := tx.Exec(`DELETE FROM workout_entries WHERE id=$1`, id)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
