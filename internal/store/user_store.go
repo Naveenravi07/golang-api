@@ -71,7 +71,7 @@ func (pg *PostgresUserStore) CreateUser(user *User) (*User, error) {
 
 func (pg *PostgresUserStore) GetUserByUsername(usermame string) (*User, error) {
 	user := &User{}
-	query := `SELECT id,username,email,password_hash,bio,created_at,updated_at from users where username=$1`
+	query := `SELECT id,username,email,password_hash,bio,createdAT,updatedAt from users where username=$1`
 	err := pg.db.QueryRow(query, usermame).Scan(
 		&user.Id, &user.Username, &user.Email, &user.PasswordHash.hash, &user.Bio, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -86,7 +86,7 @@ func (pg *PostgresUserStore) GetUserByUsername(usermame string) (*User, error) {
 }
 
 func (pg *PostgresUserStore) UpdateUser(user *User) error {
-	query := `UPDATE users SET username=$1,email=$2,bio=$3,updated_at=CURRENT_TIMESTAMP WHERE id=$4 RETURNING updated_at`
+	query := `UPDATE users SET username=$1,email=$2,bio=$3,updatedAt=CURRENT_TIMESTAMP WHERE id=$4 RETURNING updatedAt`
 	result, err := pg.db.Exec(query, user.Username, user.Email, user.Bio, user.Id)
 	if err != nil {
 		return err
