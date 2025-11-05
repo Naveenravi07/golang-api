@@ -2,6 +2,8 @@ package store
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 )
 
 type Workout struct {
@@ -37,6 +39,7 @@ type WorkoutStore interface {
 	CreateWorkout(*Workout) (*Workout, error)
 	GetWorkoutById(id int64) (*Workout, error)
 	UpdateWorkout(*Workout) error
+	DeleteWorkout(id int64) error
 }
 
 func (pg *PostgresWorkoutStore) CreateWorkout(workout *Workout) (*Workout, error) {
@@ -57,7 +60,8 @@ func (pg *PostgresWorkoutStore) CreateWorkout(workout *Workout) (*Workout, error
 		return nil, err
 	}
 
-	for _, entry := range workout.Entries {
+	for i := range workout.Entries {
+		entry := &workout.Entries[i]
 		query := `
 		INSERT INTO workout_entries (workout_id,exercise_name,sets,reps,duration_seconds,weight,notes,order_index)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -67,6 +71,7 @@ func (pg *PostgresWorkoutStore) CreateWorkout(workout *Workout) (*Workout, error
 		if err != nil {
 			return nil, err
 		}
+		entry.WorkoutId = workout.Id
 	}
 
 	err = tx.Commit()
@@ -83,7 +88,7 @@ func (pg *PostgresWorkoutStore) GetWorkoutById(id int64) (*Workout, error) {
 
 	err := pg.db.QueryRow(query, id).Scan(&workout.Id, &workout.Title, &workout.DurationMinutes, &workout.CaloriesBurned)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
@@ -180,6 +185,23 @@ func (pg *PostgresWorkoutStore) UpdateWorkout(workout *Workout) error {
 
 	if err := tx.Commit(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (pg *PostgresWorkoutStore) DeleteWorkout(id int64) error {
+	query := `DELETE FROM workouts where id=$1`
+	result, err := pg.db.Exec(query, id)
+	fmt.Printf("\n\n %+v \n\n", result)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errors.New("No workout found for id ")
 	}
 	return nil
 }

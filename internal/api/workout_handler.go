@@ -73,3 +73,19 @@ func (wh *WorkoutHandler) HandleUpdateWorkout(w http.ResponseWriter, r *http.Req
 	}
 	utils.WriteJSON(w, http.StatusAccepted, utils.Envelope{"data": "workout updated successfully"})
 }
+
+func (wh *WorkoutHandler) DeleteWorkoutHandler(w http.ResponseWriter, r *http.Request) {
+	workoutId, err := utils.ReadIdParam(r)
+	if err != nil {
+		wh.logger.Printf("ERROR: readIDParam: %v ", err)
+		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "invalid workout id "})
+		return
+	}
+
+	err = wh.workoutStore.DeleteWorkout(workoutId)
+	if err != nil {
+		wh.logger.Printf("ERROR: failed to update workout %v", err)
+	}
+
+	utils.WriteJSON(w, http.StatusAccepted, utils.Envelope{"data": "workout deleted successfully"})
+}
