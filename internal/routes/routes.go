@@ -13,5 +13,7 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 	r.Post("/workouts", app.WorkoutHandler.HandleCreateWorkout)
 	r.Patch("/workouts", app.WorkoutHandler.HandleUpdateWorkout)
 	r.Delete("/workouts/{id}", app.WorkoutHandler.DeleteWorkoutHandler)
+
+	r.Post("/user", app.UserHandler.CreateUserHandler)
 	return r
 }
